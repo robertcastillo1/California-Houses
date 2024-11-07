@@ -1,0 +1,253 @@
+---
+title: "Project 1 EDA"
+author: "Robert Castillo"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+data <- read.csv('California_Houses.csv')
+```
+
+```{r}
+head(data)
+```
+
+```{r}
+summary(data)
+```
+
+
+```{r}
+# Median House Value
+qqnorm(data$Median_House_Value, pch =1, frame=FALSE)
+qqline(data$Median_House_Value, col = 'steelblue', lwd=2)
+```
+```{r}
+library(car)
+symbox(~Median_House_Value, data= data)
+```
+```{r}
+hist(sqrt(data$Median_House_Value))
+qqnorm(sqrt(data$Median_House_Value), pch =1, frame=FALSE)
+qqline(sqrt(data$Median_House_Value), col = 'steelblue', lwd=2)
+```
+
+```{r}
+#Median Income
+qqnorm(data$Median_Income, pch =1, frame=FALSE)
+qqline(data$Median_Income, col = 'steelblue', lwd=2)
+```
+
+```{r}
+symbox(~Median_Income, data= data)
+```
+
+```{r}
+hist(log(data$Median_Income))
+qqnorm(log(data$Median_Income), pch =1, frame=FALSE)
+qqline(log(data$Median_Income), col = 'steelblue', lwd=2)
+```
+
+```{r}
+# Median Age
+qqnorm(data$Median_Age, pch =1, frame=FALSE)
+qqline(data$Median_Age, col = 'steelblue', lwd=2)
+```
+
+```{r}
+symbox(~Median_Age, data= data)
+```
+
+```{r}
+#Total Rooms
+qqnorm(data$Tot_Rooms, pch =1, frame=FALSE)
+qqline(data$Tot_Rooms, col = 'steelblue', lwd=2)
+```
+
+```{r}
+symbox(~Tot_Rooms, data= data)
+```
+
+```{r}
+hist(log(data$Tot_Rooms))
+qqnorm(log(data$Tot_Rooms), pch =1, frame=FALSE)
+qqline(log(data$Tot_Rooms), col = 'steelblue', lwd=2)
+```
+
+```{r}
+#Tot_Bedrooms
+qqnorm(data$Tot_Bedrooms, pch =1, frame=FALSE)
+qqline(data$Tot_Bedrooms, col = 'steelblue', lwd=2)
+```
+
+```{r}
+symbox(~Tot_Bedrooms, data= data)
+```
+
+```{r}
+hist(log(data$Tot_Bedrooms))
+qqnorm(log(data$Tot_Bedrooms), pch =1, frame=FALSE)
+qqline(log(data$Tot_Bedrooms), col = 'steelblue', lwd=2)
+```
+
+```{r}
+#Population
+qqnorm(data$Population, pch =1, frame=FALSE)
+qqline(data$Population, col = 'steelblue', lwd=2)
+```
+
+```{r}
+symbox(~Population, data= data)
+```
+
+```{r}
+hist(log(data$Population))
+qqnorm(log(data$Population), pch =1, frame=FALSE)
+qqline(log(data$Population), col = 'steelblue', lwd=2)
+```
+
+```{r}
+#Households
+qqnorm(data$Households, pch =1, frame=FALSE)
+qqline(data$Households, col = 'steelblue', lwd=2)
+```
+
+```{r}
+symbox(~Households, data=data)
+```
+
+```{r}
+hist(log(data$Households))
+qqnorm(log(data$Households), pch =1, frame=FALSE)
+qqline(log(data$Households), col = 'steelblue', lwd=2)
+```
+
+```{r}
+# Distance to Coast
+qqnorm(data$Distance_to_coast, pch =1, frame=FALSE)
+qqline(data$Distance_to_coast, col = 'steelblue', lwd=2)
+```
+
+```{r}
+symbox(~Distance_to_coast, data = data)
+```
+
+```{r}
+hist(log(data$Distance_to_coast))
+qqnorm(log(data$Distance_to_coast), pch =1, frame=FALSE)
+qqline(log(data$Distance_to_coast), col = 'steelblue', lwd=2)
+```
+
+```{r}
+city_dists <- data[c('Distance_to_LA', 'Distance_to_SanDiego', 'Distance_to_SanJose', 'Distance_to_SanFrancisco')]
+
+closest <- apply(city_dists, 1, FUN = which.min)
+
+f_closest <- as.factor(closest)
+levels(f_closest) <- c('LA', 'SD', 'SJ', 'SF')
+
+barplot(table(f_closest), main='Freq of Closest Major Cities')
+```
+
+
+```{r}
+data2 <- data
+
+data2$Median_House_Value_Sqrt <- sqrt(data2$Median_House_Value)
+data2$Median_Income_Log <- log(data2$Median_Income)
+data2$Distance_to_coast_Log <- log(data2$Distance_to_coast)
+
+data2$Closest_City <- f_closest
+```
+
+```{r}
+data2 <- data2[-c(1,2,8:14)]
+```
+
+
+**Residual Plots**
+
+```{r}
+#Median_Age
+lm_age <- lm(Median_House_Value_Sqrt~ Median_Age, data = data2)
+plot(lm_age)
+```
+
+```{r}
+#Tot_Rooms
+lm_rooms <- lm(Median_House_Value_Sqrt ~ Tot_Rooms, data = data2)
+plot(lm_rooms)
+```
+
+```{r}
+#Tot_Bedrooms
+lm_bedrooms <- lm(Median_House_Value_Sqrt ~ Tot_Bedrooms, data = data2)
+plot(lm_bedrooms)
+```
+
+```{r}
+#Population
+lm_pop <- lm(Median_House_Value_Sqrt ~ Population, data = data2)
+plot(lm_pop)
+```
+
+```{r}
+#Households
+lm_house <- lm(Median_House_Value_Sqrt ~ Households, data = data2)
+plot(lm_house)
+```
+
+```{r}
+#Median_Income_Log
+lm_income <- lm(Median_House_Value_Sqrt ~ Median_Income_Log, data = data2)
+plot(lm_income)
+```
+
+```{r}
+#Distance to coast Log
+lm_distance <- lm(Median_House_Value_Sqrt ~ Distance_to_coast_Log, data=data2)
+plot(lm_distance)
+```
+
+
+```{r}
+#install.packages('randomForest')
+library(randomForest)
+```
+
+```{r}
+n <- nrow(data2)
+train_index <- sample(n, round(n*.8))
+test_index <- (1:n)[-train_index]
+rf_model <- randomForest(Median_House_Value_Sqrt ~ ., data = data2[train_index, ], mtry = 4, importance = TRUE)
+print(rf_model)
+```
+
+```{r}
+varImpPlot(rf_model)
+```
+
+```{r}
+m1 <- lm(Median_House_Value_Sqrt ~ Median_Income_Log + Distance_to_coast_Log + Median_Age + Population + Closest_City, data = data2)
+summary(m1)
+```
+
+```{r}
+vif(m1)
+```
+
+
+
+
+
+
+
+
+
+
+
