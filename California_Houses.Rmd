@@ -1,5 +1,5 @@
 ---
-title: "Project 1 EDA"
+title: "California Housing Prices"
 author: "Robert Castillo"
 date: "`r Sys.Date()`"
 output: pdf_document
@@ -8,6 +8,13 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+#EDA
+```{r}
+library(car)
+library(randomForest)
+```
+
 
 ```{r}
 data <- read.csv('California_Houses.csv')
@@ -27,8 +34,8 @@ summary(data)
 qqnorm(data$Median_House_Value, pch =1, frame=FALSE)
 qqline(data$Median_House_Value, col = 'steelblue', lwd=2)
 ```
+
 ```{r}
-library(car)
 symbox(~Median_House_Value, data= data)
 ```
 ```{r}
@@ -214,12 +221,6 @@ lm_distance <- lm(Median_House_Value_Sqrt ~ Distance_to_coast_Log, data=data2)
 plot(lm_distance)
 ```
 
-
-```{r}
-#install.packages('randomForest')
-library(randomForest)
-```
-
 ```{r}
 n <- nrow(data2)
 train_index <- sample(n, round(n*.8))
@@ -241,7 +242,186 @@ summary(m1)
 vif(m1)
 ```
 
+#Modeling
+```{r}
+housing_df <- read.csv('California_Houses.csv')
 
+# eliminate 500001 values due to the fact that the data collection process seemed to 
+# have set all values greater than 500K equal to 500001 so we have a very large number of 
+# observations with 500001 as the price (even if the other features change)
+housing_df <- housing_df[housing_df$Median_House_Value < 500001, ]
+```
+&nbsp;&nbsp;
+
+Summary of response variable (Median_House_Value) and the predictors is shown above. 
+
+
+## Add to engineered features
+
+&nbsp;&nbsp;
+```{r}
+
+# closest major city
+city_dists <- housing_df[c('Distance_to_LA',	'Distance_to_SanDiego',	'Distance_to_SanJose',	'Distance_to_SanFrancisco')]
+closest <- apply(city_dists, 1, FUN = which.min)
+f_closest <- as.factor(closest)
+levels(f_closest) <- c('LA',	'SD',	'SJ',	'SF')
+
+
+# dist to coast
+dist2coast <- housing_df['Distance_to_coast']
+dist2coast <- sapply(dist2coast, as.numeric)
+coast_levels <- cut(dist2coast,c(0, 3200, 9079.8, 20522.0, 150000, 333804.7))
+levels(coast_levels) <- c("On", "Very Near", "Near", "Far", "Very Far" )
+
+# age (simpler cut proved a bit more significant)
+medAge <- housing_df['Median_Age']
+medAge <- sapply(medAge, as.numeric)
+ages <- cut(medAge,c(0, 45, max(medAge)))
+levels(ages) <- c("Not Old", "Old")
+
+# add interaction features (simpler cuts from EDA)
+
+avg_rooms_per_house <- housing_df$Tot_Rooms / housing_df$Households
+avg_rooms <- cut(avg_rooms_per_house,c(0, 6, max(avg_rooms_per_house)))
+levels(avg_rooms) <- c("Less than 6", "6 or more" )
+avg_rooms_per_house[avg_rooms_per_house  >= 100] = NA
+
+
+avg_people_per_house <- housing_df$Population / housing_df$Households
+avg_people <- cut(avg_people_per_house,c(0, 2, 3, max(avg_people_per_house)))
+levels(avg_people) <- c("Less Than 2", "2 to 3", "More than 3" )
+avg_people_per_house[avg_people_per_house  >= 100] = NA
+
+
+avg_people_per_room <- housing_df$Population / housing_df$Tot_Bedrooms
+avg_ppr <- cut(avg_people_per_room,c(0, 1, 3, max(avg_people_per_room)))
+levels(avg_ppr) <- c("Less Than 1", "1 to 3", "More than 3" )
+avg_people_per_room[avg_people_per_room  >= 10] = NA
+
+# factors added to df 
+housing_df$closest_city <- f_closest
+housing_df$coast_levels <- coast_levels
+housing_df$ages_levels <- ages
+housing_df$rooms_per_house_levels <- avg_rooms
+housing_df$people_per_house_levels <- avg_people
+housing_df$people_per_room_levels <- avg_ppr
+
+# numeric interactions added to df
+housing_df$avg_rooms_per_house <- avg_rooms_per_house  
+housing_df$avg_people_per_house <- avg_people_per_house  
+housing_df$avg_people_per_room <- avg_people_per_room  
+
+# apply transformation for new (approx. normal) response variable
+housing_df$Median_House_Value_Sqrt <- sqrt(housing_df$Median_House_Value)
+
+```
+&nbsp;&nbsp;
+
+
+# Modeling without Interactions
+
+## Random Forest Model for Baselines
+
+&nbsp;&nbsp;
+
+```{r, eval=FALSE}
+
+# with final cuts of categorical variables
+rf_model <-randomForest(Median_House_Value_Sqrt~ . - Median_House_Value - Latitude
+                   - Longitude - Median_Age - Distance_to_SanDiego 
+                   - Distance_to_SanJose - Distance_to_SanFrancisco
+                   - Distance_to_coast - Distance_to_LA, 
+                   data=na.omit(housing_df),
+                   ntree=500) 
+print(rf_model)
+
+```
+
+&nbsp;&nbsp;
+
+# Get Estimate for Test Error Using 10 fold CV 
+
+
+&nbsp;&nbsp;
+
+```{r, eval=FALSE}
+
+set.seed(7)
+
+train.control <- trainControl(method = "cv", number = 10)
+
+repGrid <- expand.grid(.mtry=c(8)) # standard default parameter
+
+
+cv_rf <- train(Median_House_Value_Sqrt ~ Median_Income + Tot_Rooms + 
+                 Households + closest_city + coast_levels + ages_levels + 
+                 rooms_per_house_levels + people_per_house_levels + people_per_room_levels + 
+                 avg_rooms_per_house + avg_people_per_house + avg_people_per_room, 
+                 data = na.omit(housing_df), 
+                 method = "rf", 
+                 trControl = train.control,
+                 ntree=300, 
+                 tuneGrid = repGrid)
+  
+print(cv_rf)
+
+
+#Random Forest 
+
+#19643 samples
+#   12 predictor
+
+#No pre-processing
+#Resampling: Cross-Validated (10 fold) 
+#Summary of sample sizes: 17678, 17680, 17679, 17680, 17678, 17678, ... 
+#Resampling results:
+
+#  RMSE      Rsquared   MAE     
+#  61.21744  0.6893869  45.43543
+
+#Tuning parameter 'mtry' was held constant at a value of 8
+
+```
+
+&nbsp;&nbsp;
+
+
+## MLR Modeling 
+
+We use backward selection on no interaction model:
+
+&nbsp;&nbsp;
+
+```{r}
+model_no_int <- lm(Median_House_Value_Sqrt ~ . - Median_House_Value - Latitude
+                   - Longitude - Median_Age - Distance_to_SanDiego 
+                   - Distance_to_SanJose - Distance_to_SanFrancisco
+                   - Distance_to_coast - Distance_to_LA,
+                   data = na.omit(housing_df))
+summary(model_no_int) 
+
+# use backward selection
+model_no_int2 <- step(model_no_int, direction = "backward", trace=0) 
+summary(model_no_int2)
+
+
+
+# no significant difference in model with extra terms
+anova(model_no_int2, model_no_int)
+
+
+# get rid of seemingly unnecessary variables 
+model_no_int3 <- lm(formula = Median_House_Value_Sqrt ~ Median_Income + Tot_Rooms
+                    + Households + closest_city + coast_levels + ages_levels
+                    + rooms_per_house_levels + people_per_house_levels + people_per_room_levels, 
+                    data = na.omit(housing_df))
+summary(model_no_int3)
+
+
+# significant difference in model with extra terms, so use model_no_int2
+anova(model_no_int3, model_no_int2)
+```
 
 
 
